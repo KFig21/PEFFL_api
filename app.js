@@ -7,6 +7,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const bodyParser = require("body-parser");
 const createError = require("http-errors");
+const path = require("path");
 
 // import routes
 const authRouter = require("./routes/auth");
@@ -24,18 +25,18 @@ const db = mongoose.connection;
 db.on("error", console.error.bind(console, "MongoDB connection error:"));
 
 // cors middleware
-const corsOptions = {
-  origin: "*",
-  credentials: true, //access-control-allow-credentials:true
-  optionSuccessStatus: 200,
-};
-app.use(cors(corsOptions)); // Use this after the variable declaration
-app.options("*", cors());
 app.use(function (req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Headers", "X-Requested-With");
   next();
 });
+const corsOptions = {
+  origin: "http://localhost:3001/",
+  credentials: true, //access-control-allow-credentials:true
+  optionSuccessStatus: 200,
+};
+app.use(cors(corsOptions)); // Use this after the variable declaration
+app.options("*", cors());
 //middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -51,6 +52,10 @@ app.use("/peffl/teams", teamsRouter);
 app.use("/peffl/matchups", matchupsRouter);
 app.use("/peffl/ranks", ranksRouter);
 app.use("/peffl/seasons", seasonsRouter);
+
+// view engine setup needed to keep from erroring out - ignore
+app.set("views", path.join(__dirname, "views"));
+app.set("view engine", "jade");
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
