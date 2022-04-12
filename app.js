@@ -66,9 +66,9 @@ app.use(function (err, req, res, next) {
   res.render("error");
 });
 
-const port = 3001;
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}!`);
-});
+// const port = 3001;
+// app.listen(port, () => {
+//   console.log(`Example app listening on port ${port}!`);
+// });
 
-// module.exports = app;
+module.exports = app;
