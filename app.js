@@ -31,7 +31,7 @@ app.use(function (req, res, next) {
   next();
 });
 const corsOptions = {
-  origin: "http://localhost:3001/",
+  origin: "*",
   credentials: true, //access-control-allow-credentials:true
   optionSuccessStatus: 200,
 };
