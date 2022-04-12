@@ -1,15 +1,12 @@
 require("dotenv").config({ path: "./.env" });
 const express = require("express");
 const app = express();
-var cors = require("cors");
+const cors = require("cors");
 const mongoose = require("mongoose");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const bodyParser = require("body-parser");
 const createError = require("http-errors");
-const path = require("path");
-
-app.use(cors()); // Use this after the variable declaration
 
 // import routes
 const authRouter = require("./routes/auth");
