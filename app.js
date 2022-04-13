@@ -1,7 +1,6 @@
 require("dotenv").config({ path: "./.env" });
 const express = require("express");
 const app = express();
-const cors = require("cors");
 const mongoose = require("mongoose");
 const helmet = require("helmet");
 const morgan = require("morgan");
@@ -25,13 +24,20 @@ const db = mongoose.connection;
 db.on("error", console.error.bind(console, "MongoDB connection error:"));
 
 // cors middleware
-const corsOptions = {
-  origin: "https://kfig21.github.io/PEFFL_archive/#/",
-  credentials: true, //access-control-allow-credentials:true
-  optionSuccessStatus: 200,
+var whitelist = [
+  "https://kfig21.github.io/",
+  "https://kfig21.github.io/PEFFL_archive/",
+  "https://kfig21.github.io/PEFFL_archive/#/",
+  // list whatever possible domains you have
+];
+var globalCorsOptions = {
+  origin: function (origin, callback) {
+    callback(null, whitelist.indexOf(origin) !== -1);
+  },
 };
-app.use(cors(corsOptions)); // Use this after the variable declaration
-app.options("*", cors());
+
+var cors = require("cors");
+app.use(cors(globalCorsOptions));
 //middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
