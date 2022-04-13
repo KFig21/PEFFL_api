@@ -26,7 +26,7 @@ db.on("error", console.error.bind(console, "MongoDB connection error:"));
 
 // cors middleware
 const corsOptions = {
-  accessControlAllowOrigin: "*",
+  "Access-Control-Allow-Origin": "*",
   origin: "*",
   credentials: true, //access-control-allow-credentials:true
   optionSuccessStatus: 200,
