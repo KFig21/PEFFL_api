@@ -25,14 +25,8 @@ const db = mongoose.connection;
 db.on("error", console.error.bind(console, "MongoDB connection error:"));
 
 // cors middleware
-const corsOptions = {
-  "Access-Control-Allow-Origin": "*",
-  origin: "*",
-  credentials: true, //access-control-allow-credentials:true
-  optionSuccessStatus: 200,
-};
-app.use(cors(corsOptions)); // Use this after the variable declaration
-app.options("*", cors());
+
+app.use(cors()); // Use this after the variable declaration
 //middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
