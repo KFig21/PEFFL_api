@@ -1,7 +1,7 @@
 require("dotenv").config({ path: "./.env" });
 const express = require("express");
-const cors = require("cors");
 const app = express();
+const cors = require("cors");
 const mongoose = require("mongoose");
 const helmet = require("helmet");
 const morgan = require("morgan");
@@ -26,8 +26,8 @@ db.on("error", console.error.bind(console, "MongoDB connection error:"));
 
 // cors middleware
 const corsOptions = {
+  origin: "https://kfig21.github.io",
   credentials: true, //access-control-allow-credentials:true
-  origin: true,
   optionSuccessStatus: 200,
 };
 app.use(cors(corsOptions)); // Use this after the variable declaration
