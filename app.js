@@ -25,6 +25,7 @@ db.on("error", console.error.bind(console, "MongoDB connection error:"));
 
 // cors middleware
 var whitelist = [
+  "https://kfig21.github.io",
   "https://kfig21.github.io/",
   "https://kfig21.github.io/PEFFL_archive/",
   "https://kfig21.github.io/PEFFL_archive/#/",
