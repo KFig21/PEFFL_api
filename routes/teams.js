@@ -1,26 +1,29 @@
 const router = require("express").Router();
-const mysql = require("mysql");
+// const mysql = require("mysql");
 
-// mysql db connection
-const db = mysql.createConnection({
-  host: process.env.RDS_HOSTNAME,
-  user: process.env.RDS_USERNAME,
-  password: process.env.RDS_PASSWORD,
-  port: process.env.RDS_PORT,
-});
+// // mysql db connection
+// const db = mysql.createConnection({
+//   host: process.env.RDS_HOSTNAME,
+//   user: process.env.RDS_USERNAME,
+//   password: process.env.RDS_PASSWORD,
+//   port: process.env.RDS_PORT,
+// });
 
-// connect to db
-db.connect(function (err) {
-  if (err) {
-    console.error("Database connection failed: " + err.stack);
-    return;
-  }
-});
+// // connect to db
+// db.connect(function (err) {
+//   if (err) {
+//     console.error("Database connection failed: " + err.stack);
+//     return;
+//   }
+// });
+
+const { initializeDatabase } = require('../database');
+const db = initializeDatabase();
 
 // get team stats
 router.get("/stats/:team", (req, res) => {
   let team = req.params.team;
-  db.query(
+  db.all(
     `
     SELECT *
     FROM 
@@ -34,8 +37,8 @@ router.get("/stats/:team", (req, res) => {
     AVG(pa) as 'rs_PAPG', 
     sum(pf-pa) as 'rs_DIF', 
     AVG(pf-pa) as 'rs_DIFPG' 
-    FROM peffl_data.PEFFL_RS   
-    WHERE team = '${team}'
+    FROM allGames WHERE season = 'r'   
+    AND team = '${team}'
     GROUP BY team) as rs
     
     JOIN
@@ -62,8 +65,8 @@ router.get("/stats/:team", (req, res) => {
 		AVG(pa) as 'playoffs_PAPG', 
 		sum(pf-pa) as 'playoffs_DIF', 
 		AVG(pf-pa) as 'playoffs_DIFPG' 
-		FROM peffl_data.PEFFL_playoffs   
-		WHERE team = '${team}'
+		FROM allGames WHERE season = 'p'  
+		AND team = '${team}'
 		GROUP BY team) as a
         
         LEFT JOIN 
@@ -72,8 +75,8 @@ router.get("/stats/:team", (req, res) => {
         team,  
         sum(win) as 'C', 
         sum(loss) as 'R'
-        FROM peffl_data.PEFFL_playoffs  
-        WHERE week = 'DC'  
+        FROM allGames WHERE season = 'p' 
+        AND week = 'DC'  
         GROUP BY team) as b
         
         ON a.team = b.team 
@@ -92,7 +95,7 @@ router.get("/stats/:team", (req, res) => {
     sum(p) as 'awards_MostPoints', 
     sum(dc) as 'awards_DivisionTitles', 
     sum(money) as 'awards_Money' 
-    FROM peffl_data.PEFFL_awards 
+    FROM awards
     WHERE team = '${team}') as awards
 
     on
@@ -112,7 +115,7 @@ router.get("/stats/:team", (req, res) => {
 // get team stats IF NEVER MADE PLAYOFFS
 router.get("/statsIfNeverMadePlayoffs/:team", (req, res) => {
   let team = req.params.team;
-  db.query(
+  db.all(
     `
     SELECT *
     FROM 
@@ -126,8 +129,8 @@ router.get("/statsIfNeverMadePlayoffs/:team", (req, res) => {
     AVG(pa) as 'rs_PAPG', 
     sum(pf-pa) as 'rs_DIF', 
     AVG(pf-pa) as 'rs_DIFPG' 
-    FROM peffl_data.PEFFL_RS   
-    WHERE team = '${team}'
+    FROM allGames WHERE season = 'r'   
+    AND team = '${team}'
     GROUP BY team) as rs
     
     JOIN
@@ -140,7 +143,7 @@ router.get("/statsIfNeverMadePlayoffs/:team", (req, res) => {
     sum(p) as 'awards_MostPoints', 
     sum(dc) as 'awards_DivisionTitles', 
     sum(money) as 'awards_Money' 
-    FROM peffl_data.PEFFL_awards 
+    FROM awards
     WHERE team = '${team}') as awards
 
     on
@@ -162,8 +165,9 @@ router.get("/headToHead/:team/:column/:order/:table", (req, res) => {
   let team = req.params.team;
   let col = req.params.column;
   let order = req.params.order;
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r' AND` : req.params.table === 'playoffs' ? `WHERE season = 'p' AND` : `WHERE`
+
+  db.all(
     `
     SELECT 
     team,
@@ -180,8 +184,8 @@ router.get("/headToHead/:team/:column/:order/:table", (req, res) => {
     avg(pf) - avg(pa) as 'DIFPG',
     sum(pf) + sum(pa) as 'TOT',
     avg(pf) + avg(pa) as 'TOTPG'
-    FROM peffl_data.PEFFL_${table}
-    where team = '${team}'
+    FROM allGames ${where}
+    team = '${team}'
     group by opp
     order by ${col} ${order};`,
     (err, result) => {
@@ -199,506 +203,134 @@ router.get("/seasons/:team/:column/:order/:table", (req, res) => {
   let team = req.params.team;
   let col = req.params.column;
   let order = req.params.order;
-  let table = req.params.table;
+  let where =
+    req.params.table === "RS"
+      ? "WHERE season = 'r' AND"
+      : req.params.table === "playoffs"
+      ? "WHERE season = 'p' AND"
+      : "WHERE";
 
-  db.query(
+  db.all(
     `
-    SELECT 
-    team as 'team_',
-    year as 'year_',
-    sum(win) as 'W',
-    sum(loss) as 'L',
-    sum(pf) as 'PF',
-    sum(pa) as 'PA',
-    avg(pf) as 'PPG',
-    avg(pa) as 'PAPG',
-    sum(pf) - sum(pa)  as 'DIF',
-    avg(pf) - avg(pa) as 'DIFPG', 
-    sum(pa) + sum(pf) as 'TOT',
-    (sum(pa) + sum(pf))/(sum(win) + sum(loss)) as 'TOTPG',
+    WITH week_data AS (
+      SELECT
+        year,
+        team,
+        week,
+        pf,
+        win,
+        opp,
+        pa
+      FROM allGames
+      ${where}
+      team = ?
+    )
+    SELECT
+      team AS 'team_',
+      year AS 'year_',
+      sum(win) AS 'W',
+      sum(loss) AS 'L',
+      sum(pf) AS 'PF',
+      sum(pa) AS 'PA',
+      avg(pf) AS 'PPG',
+      avg(pa) AS 'PAPG',
+      sum(pf) - sum(pa) AS 'DIF',
+      avg(pf) - avg(pa) AS 'DIFPG',
+      sum(pa) + sum(pf) AS 'TOT',
+      (sum(pa) + sum(pf)) / (sum(win) + sum(loss)) AS 'TOTPG',
 
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 1
-        AND team = team_) as week1,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 1
-          AND team = team_) as week1_outcome,
+      MAX(CASE WHEN week = 1 THEN pf END) AS week1,
+      MAX(CASE WHEN week = 1 THEN win END) AS week1_outcome,
+      MAX(CASE WHEN week = 1 THEN opp END) AS week1_opp,
+      MAX(CASE WHEN week = 1 THEN pa END) AS week1_pa,
 
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 1
-          AND team = team_) as week1_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 1
-          AND team = team_) as week1_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 2
-        AND team = team_) as week2,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 2
-          AND team = team_) as week2_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 2
-          AND team = team_) as week2_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 2
-          AND team = team_) as week2_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 3
-        AND team = team_) as week3,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 3
-          AND team = team_) as week3_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 3
-          AND team = team_) as week3_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 3
-          AND team = team_) as week3_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 4
-        AND team = team_) as week4,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 4
-          AND team = team_) as week4_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 4
-          AND team = team_) as week4_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 4
-          AND team = team_) as week4_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 5
-        AND team = team_) as week5,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 5
-          AND team = team_) as week5_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 5
-          AND team = team_) as week5_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 5
-          AND team = team_) as week5_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 6
-        AND team = team_) as week6,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 6
-          AND team = team_) as week6_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 6
-          AND team = team_) as week6_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 6
-          AND team = team_) as week6_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 7
-        AND team = team_) as week7,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 7
-          AND team = team_) as week7_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 7
-          AND team = team_) as week7_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 7
-          AND team = team_) as week7_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 8
-        AND team = team_) as week8,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 8
-          AND team = team_) as week8_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 8
-          AND team = team_) as week8_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 8
-          AND team = team_) as week8_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 9
-        AND team = team_) as week9,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 9
-          AND team = team_) as week9_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 9
-          AND team = team_) as week9_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 9
-          AND team = team_) as week9_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 10
-        AND team = team_) as week10,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 10
-          AND team = team_) as week10_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 10
-          AND team = team_) as week10_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 10
-          AND team = team_) as week10_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 11
-        AND team = team_) as week11,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 11
-          AND team = team_) as week11_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 11
-          AND team = team_) as week11_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 11
-          AND team = team_) as week11_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 12
-        AND team = team_) as week12,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 12
-          AND team = team_) as week12_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 12
-          AND team = team_) as week12_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 12
-          AND team = team_) as week12_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 13
-        AND team = team_) as week13,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 13
-          AND team = team_) as week13_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 13
-          AND team = team_) as week13_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 13
-          AND team = team_) as week13_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_RS
-        WHERE year = year_
-        AND week = 14
-        AND team = team_) as week14,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 14
-          AND team = team_) as week14_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 14
-          AND team = team_) as week14_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_RS
-          WHERE year = year_
-          AND week = 14
-          AND team = team_) as week14_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_playoffs
-        WHERE year = year_
-        AND week = "wc"
-        AND team = team_) as wc,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_playoffs
-          WHERE year = year_
-          AND week = "wc"
-          AND team = team_) as weekWc_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_playoffs
-          WHERE year = year_
-          AND week = "wc"
-          AND team = team_) as weekWc_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_playoffs
-          WHERE year = year_
-          AND week = "wc"
-          AND team = team_) as weekWc_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_playoffs
-        WHERE year = year_
-        AND week = "sf"
-        AND team = team_) as sf,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_playoffs
-          WHERE year = year_
-          AND week = "sf"
-          AND team = team_) as weekSf_outcome,
+      MAX(CASE WHEN week = 2 THEN pf END) AS week2,
+      MAX(CASE WHEN week = 2 THEN win END) AS week2_outcome,
+      MAX(CASE WHEN week = 2 THEN opp END) AS week2_opp,
+      MAX(CASE WHEN week = 2 THEN pa END) AS week2_pa,
 
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_playoffs
-          WHERE year = year_
-          AND week = "sf"
-          AND team = team_) as weekSf_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_playoffs
-          WHERE year = year_
-          AND week = "sf"
-          AND team = team_) as weekSf_pa,
-      
-      (SELECT 
-        pf
-        FROM peffl_data.PEFFL_playoffs
-        WHERE year = year_
-        AND week = "dc"
-        AND team = team_) as dc,
-      
-        (SELECT 
-          win
-          FROM peffl_data.PEFFL_playoffs
-          WHERE year = year_
-          AND week = "dc"
-          AND team = team_) as weekDc_outcome,
-          
-        (SELECT 
-          opp
-          FROM peffl_data.PEFFL_playoffs
-          WHERE year = year_
-          AND week = "dc"
-          AND team = team_) as weekDc_opp,
-    
-        (SELECT 
-          pa
-          FROM peffl_data.PEFFL_playoffs
-          WHERE year = year_
-          AND week = "dc"
-          AND team = team_) as weekDc_pa
-      
- 
+      MAX(CASE WHEN week = 3 THEN pf END) AS week3,
+      MAX(CASE WHEN week = 3 THEN win END) AS week3_outcome,
+      MAX(CASE WHEN week = 3 THEN opp END) AS week3_opp,
+      MAX(CASE WHEN week = 3 THEN pa END) AS week3_pa,
 
-    FROM peffl_data.PEFFL_${table}
-    where team = '${team}'
-    group by Year
-    order by ${col} ${order}`,
+      MAX(CASE WHEN week = 4 THEN pf END) AS week4,
+      MAX(CASE WHEN week = 4 THEN win END) AS week4_outcome,
+      MAX(CASE WHEN week = 4 THEN opp END) AS week4_opp,
+      MAX(CASE WHEN week = 4 THEN pa END) AS week4_pa,
+
+      MAX(CASE WHEN week = 5 THEN pf END) AS week5,
+      MAX(CASE WHEN week = 5 THEN win END) AS week5_outcome,
+      MAX(CASE WHEN week = 5 THEN opp END) AS week5_opp,
+      MAX(CASE WHEN week = 5 THEN pa END) AS week5_pa,
+
+      MAX(CASE WHEN week = 6 THEN pf END) AS week6,
+      MAX(CASE WHEN week = 6 THEN win END) AS week6_outcome,
+      MAX(CASE WHEN week = 6 THEN opp END) AS week6_opp,
+      MAX(CASE WHEN week = 6 THEN pa END) AS week6_pa,
+
+      MAX(CASE WHEN week = 7 THEN pf END) AS week7,
+      MAX(CASE WHEN week = 7 THEN win END) AS week7_outcome,
+      MAX(CASE WHEN week = 7 THEN opp END) AS week7_opp,
+      MAX(CASE WHEN week = 7 THEN pa END) AS week7_pa,
+
+      MAX(CASE WHEN week = 8 THEN pf END) AS week8,
+      MAX(CASE WHEN week = 8 THEN win END) AS week8_outcome,
+      MAX(CASE WHEN week = 8 THEN opp END) AS week8_opp,
+      MAX(CASE WHEN week = 8 THEN pa END) AS week8_pa,
+
+      MAX(CASE WHEN week = 9 THEN pf END) AS week9,
+      MAX(CASE WHEN week = 9 THEN win END) AS week9_outcome,
+      MAX(CASE WHEN week = 9 THEN opp END) AS week9_opp,
+      MAX(CASE WHEN week = 9 THEN pa END) AS week9_pa,
+
+      MAX(CASE WHEN week = 10 THEN pf END) AS week10,
+      MAX(CASE WHEN week = 10 THEN win END) AS week10_outcome,
+      MAX(CASE WHEN week = 10 THEN opp END) AS week10_opp,
+      MAX(CASE WHEN week = 10 THEN pa END) AS week10_pa,
+
+      MAX(CASE WHEN week = 11 THEN pf END) AS week11,
+      MAX(CASE WHEN week = 11 THEN win END) AS week11_outcome,
+      MAX(CASE WHEN week = 11 THEN opp END) AS week11_opp,
+      MAX(CASE WHEN week = 11 THEN pa END) AS week11_pa,
+
+      MAX(CASE WHEN week = 12 THEN pf END) AS week12,
+      MAX(CASE WHEN week = 12 THEN win END) AS week12_outcome,
+      MAX(CASE WHEN week = 12 THEN opp END) AS week12_opp,
+      MAX(CASE WHEN week = 12 THEN pa END) AS week12_pa,
+
+      MAX(CASE WHEN week = 13 THEN pf END) AS week13,
+      MAX(CASE WHEN week = 13 THEN win END) AS week13_outcome,
+      MAX(CASE WHEN week = 13 THEN opp END) AS week13_opp,
+      MAX(CASE WHEN week = 13 THEN pa END) AS week13_pa,
+
+      MAX(CASE WHEN week = 14 THEN pf END) AS week14,
+      MAX(CASE WHEN week = 14 THEN win END) AS week14_outcome,
+      MAX(CASE WHEN week = 14 THEN opp END) AS week14_opp,
+      MAX(CASE WHEN week = 14 THEN pa END) AS week14_pa,
+
+      MAX(CASE WHEN week = 'WC' THEN pf END) AS wc,
+      MAX(CASE WHEN week = 'WC' THEN win END) AS weekWc_outcome,
+      MAX(CASE WHEN week = 'WC' THEN opp END) AS weekWc_opp,
+      MAX(CASE WHEN week = 'WC' THEN pa END) AS weekWc_pa,
+
+      MAX(CASE WHEN week = 'SF' THEN pf END) AS sf,
+      MAX(CASE WHEN week = 'SF' THEN win END) AS weekSf_outcome,
+      MAX(CASE WHEN week = 'SF' THEN opp END) AS weekSf_opp,
+      MAX(CASE WHEN week = 'SF' THEN pa END) AS weekSf_pa,
+
+      MAX(CASE WHEN week = 'DC' THEN pf END) AS dc,
+      MAX(CASE WHEN week = 'DC' THEN win END) AS weekDc_outcome,
+      MAX(CASE WHEN week = 'DC' THEN opp END) AS weekDc_opp,
+      MAX(CASE WHEN week = 'DC' THEN pa END) AS weekDc_pa
+
+    FROM allGames
+    ${where}
+    team = ?
+    GROUP BY year
+    ORDER BY ${col} ${order}
+  `,
+    [team, team], // Pass team as a parameter value twice
     (err, result) => {
       if (err) {
         console.log(err);
@@ -713,8 +345,8 @@ router.get("/seasons/:team/:column/:order/:table", (req, res) => {
 router.get("/allteams/:column/:order/:table", (req, res) => {
   let col = req.params.column;
   let order = req.params.order;
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
     team,
@@ -729,7 +361,7 @@ router.get("/allteams/:column/:order/:table", (req, res) => {
     avg(pf) - avg(pa) as 'DIFPG',
     sum(pa) + sum(pf) as 'TOT',
     (sum(pa) + sum(pf))/(sum(win) + sum(loss)) as 'TOTPG'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team, year
     order by ${col} ${order}`,
     (err, result) => {
@@ -746,10 +378,10 @@ router.get("/allteams/:column/:order/:table", (req, res) => {
 
 // get allTeams medals
 router.get("/allMedals/:table/:column", (req, res) => {
-  const table = req.params.table;
   const col = req.params.column;
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
 
-  db.query(
+  db.all(
     `SELECT 
     team, 
     sum(win) as 'W',
@@ -764,7 +396,7 @@ router.get("/allMedals/:table/:column", (req, res) => {
     avg(pa) as 'PAPG',
     sum(pf) - sum(pa)  as 'DIF',
     avg(pf) - avg(pa) as 'DIFPG'
-    FROM peffl_data.PEFFL_${table} 
+    FROM allGames ${where} 
     group by team, year
     ORDER BY ${col} DESC 
     LIMIT 3`,

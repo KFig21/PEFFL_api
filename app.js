@@ -33,6 +33,12 @@ const corsOptions = {
 };
 app.use(cors(corsOptions)); // Use this after the variable declaration
 app.options("*", cors());
+// If you are receiving this error:
+//
+// access to xmlhttprequest at 'https://peffl-api.herokuapp.com/peffl/auth/teams/' from origin 'https://kfig21.github.io' has been blocked by cors policy: no 'access-control-allow-origin' header is present on the requested resource.
+//
+// remember to set your mongodb database accessible from anywhere
+
 //middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));

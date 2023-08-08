@@ -1,33 +1,36 @@
 const router = require("express").Router();
-const mysql = require("mysql");
+// const mysql = require("mysql");
 
 // mysql db connection
-const db = mysql.createConnection({
-  host: process.env.RDS_HOSTNAME,
-  user: process.env.RDS_USERNAME,
-  password: process.env.RDS_PASSWORD,
-  port: process.env.RDS_PORT,
-});
+// const db = mysql.createConnection({
+//   host: process.env.RDS_HOSTNAME,
+//   user: process.env.RDS_USERNAME,
+//   password: process.env.RDS_PASSWORD,
+//   port: process.env.RDS_PORT,
+// });
 
 // connect to db
-db.connect(function (err) {
-  if (err) {
-    console.error("Database connection failed: " + err.stack);
-    return;
-  }
-  console.log("Connected to database.");
-});
+// db.connect(function (err) {
+//   if (err) {
+//     console.error("Database connection failed: " + err.stack);
+//     return;
+//   }
+//   console.log("Connected to database.");
+// });
+
+const { initializeDatabase } = require('../database');
+const db = initializeDatabase();
 
 // OVERALL
 
 // get ranks for Win%
 router.get("/win/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
     sum(win) / (sum(win) + sum(loss)) as 'W'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team
     order by W DESC
     `,
@@ -44,12 +47,12 @@ router.get("/win/:table", (req, res) => {
 
 // get ranks for PPG
 router.get("/ppg/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
     AVG(pf) as 'PPG'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team
     order by PPG DESC
     `,
@@ -66,12 +69,12 @@ router.get("/ppg/:table", (req, res) => {
 
 // get ranks for PAPG
 router.get("/papg/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
     AVG(pa) as 'PAPG'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team
     order by PAPG DESC
     `,
@@ -88,12 +91,12 @@ router.get("/papg/:table", (req, res) => {
 
 // get ranks for DIFPG
 router.get("/difpg/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
     avg(pf) - avg(pa) as 'DIFPG'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team
     order by DIFPG DESC
     `,
@@ -110,12 +113,12 @@ router.get("/difpg/:table", (req, res) => {
 
 // get ranks for PF
 router.get("/pf/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
     sum(pf) as 'PF'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team
     order by PF DESC
     `,
@@ -132,12 +135,12 @@ router.get("/pf/:table", (req, res) => {
 
 // get ranks for PA
 router.get("/pa/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
     sum(pa) as 'PA'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team
     order by PA DESC
     `,
@@ -154,12 +157,12 @@ router.get("/pa/:table", (req, res) => {
 
 // get ranks for DIF
 router.get("/dif/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
     sum(pf) - sum(pa) as 'DIF'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team
     order by DIF DESC
     `,
@@ -178,15 +181,15 @@ router.get("/dif/:table", (req, res) => {
 
 // get ranks for wins
 router.get("/h2h/wins/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
-    concat(LEAST(team, opp), GREATEST(team, opp)) as code,
+    (MIN(team, opp) || MAX(team, opp)) as code,
     team,
     opp,
     sum(win) as 'W'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team, opp
     Order By W DESC
     `,
@@ -203,16 +206,16 @@ router.get("/h2h/wins/:table", (req, res) => {
 
 // get ranks for ppg
 router.get("/h2h/ppg/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r' AND` : req.params.table === 'playoffs' ? `WHERE season = 'p' AND` : `WHERE`
+  db.all(
     `
     SELECT 
-    concat(LEAST(team, opp), GREATEST(team, opp)) as code,
+    (MIN(team, opp) || MAX(team, opp)) as code,
     team,
     opp,
     avg(pf) as 'PPG'
-    FROM peffl_data.PEFFL_${table}
-    WHERE team != 'Taylor' AND team != 'AJ'
+    FROM allGames ${where}
+    team != 'Taylor' AND team != 'AJ'
     and opp != 'Taylor' AND opp != 'AJ'
     group by team, opp
     Order By PPG DESC
@@ -230,15 +233,15 @@ router.get("/h2h/ppg/:table", (req, res) => {
 
 // get ranks for ppg with AJ or Taylor
 router.get("/h2h/filter/ppg/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
-    concat(LEAST(team, opp), GREATEST(team, opp)) as code,
+    (MIN(team, opp) || MAX(team, opp)) as code,
     team,
     opp,
     avg(pf) as 'PPG'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team, opp
     Order By PPG DESC
     `,
@@ -255,15 +258,15 @@ router.get("/h2h/filter/ppg/:table", (req, res) => {
 
 // get ranks for pf
 router.get("/h2h/pf/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
-    concat(LEAST(team, opp), GREATEST(team, opp)) as code,
+    (MIN(team, opp) || MAX(team, opp)) as code,
     team,
     opp,
     sum(pf) as 'PF'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team, opp
     Order By PF DESC
     `,
@@ -280,16 +283,16 @@ router.get("/h2h/pf/:table", (req, res) => {
 
 // get ranks for difpg
 router.get("/h2h/difpg/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r' AND` : req.params.table === 'playoffs' ? `WHERE season = 'p' AND` : `WHERE`
+  db.all(
     `
     SELECT 
-    concat(LEAST(team, opp), GREATEST(team, opp)) as code,
+    (MIN(team, opp) || MAX(team, opp)) as code,
     team,
     opp,
     avg(pf) - avg(pa)  as 'DIFPG'
-    FROM peffl_data.PEFFL_${table}
-    WHERE team != 'Taylor' AND team != 'AJ'
+    FROM allGames ${where}
+    team != 'Taylor' AND team != 'AJ'
     and opp != 'Taylor' AND opp != 'AJ'
     group by team, opp
     Order By DIFPG DESC
@@ -307,15 +310,15 @@ router.get("/h2h/difpg/:table", (req, res) => {
 
 // get ranks for difpg with aj and taylor
 router.get("/h2h/filter/difpg/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
-    concat(LEAST(team, opp), GREATEST(team, opp)) as code,
+    (MIN(team, opp) || MAX(team, opp)) as code,
     team,
     opp,
     avg(pf) - avg(pa)  as 'DIFPG'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team, opp
     Order By DIFPG DESC
     `,
@@ -332,15 +335,15 @@ router.get("/h2h/filter/difpg/:table", (req, res) => {
 
 // get ranks for dif
 router.get("/h2h/dif/:table", (req, res) => {
-  let table = req.params.table;
-  db.query(
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
+  db.all(
     `
     SELECT 
-    concat(LEAST(team, opp), GREATEST(team, opp)) as code,
+    (MIN(team, opp) || MAX(team, opp)) as code,
     team,
     opp,
     sum(pf) - sum(pa)  as 'DIF'
-    FROM peffl_data.PEFFL_${table}
+    FROM allGames ${where}
     group by team, opp
     Order By DIF DESC
     `,

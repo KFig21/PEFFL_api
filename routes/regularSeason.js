@@ -2,25 +2,29 @@ const router = require("express").Router();
 const mysql = require("mysql");
 
 // mysql db connection
-const db = mysql.createConnection({
-  host: process.env.RDS_HOSTNAME,
-  user: process.env.RDS_USERNAME,
-  password: process.env.RDS_PASSWORD,
-  port: process.env.RDS_PORT,
-});
+// const db = mysql.createConnection({
+//   host: process.env.RDS_HOSTNAME,
+//   user: process.env.RDS_USERNAME,
+//   password: process.env.RDS_PASSWORD,
+//   port: process.env.RDS_PORT,
+// });
 
 // connect to db
-db.connect(function (err) {
-  if (err) {
-    console.error("Database connection failed: " + err.stack);
-    return;
-  }
-});
+// db.connect(function (err) {
+//   if (err) {
+//     console.error("Database connection failed: " + err.stack);
+//     return;
+//   }
+// });
+
+const { initializeDatabase } = require('../database');
+
+const db = initializeDatabase();
 
 // get team names
 router.get("/teams", (req, res) => {
-  db.query(
-    "SELECT `team` FROM peffl_data.PEFFL_RS GROUP BY `team` ORDER BY `win` DESC",
+  db.all(
+    `SELECT 'team' FROM allgames GROUP BY 'team' ORDER BY 'win' DESC`,
     (err, result) => {
       if (err) {
         console.log(err);
@@ -35,13 +39,13 @@ router.get("/teams", (req, res) => {
 router.get("/standings/:column/:order/:table", (req, res) => {
   let col = req.params.column;
   let order = req.params.order;
-  let table = req.params.table;
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
 
   // the inner select does not include an 'A' (appearances) column
   // so i created a col2 variable that is set to 'W' if col === 'A'
   let col2 = col === "A" ? "W" : col;
 
-  db.query(
+  db.all(
     `SELECT 
     a.team as 'team', 
     a.L + IFNULL(b.C, 0) as 'A', 
@@ -72,7 +76,7 @@ router.get("/standings/:column/:order/:table", (req, res) => {
       avg(pf) - avg(pa) as 'DIFPG',
       sum(pa) + sum(pf) as 'TOT',
       (sum(pa) + sum(pf))/(sum(win) + sum(loss)) as 'TOTPG'
-      FROM peffl_data.PEFFL_${table}  
+      FROM allgames ${where}
       GROUP BY team   
       ORDER BY ${col2} ${order} ,PF DESC) as a
       
@@ -82,7 +86,7 @@ router.get("/standings/:column/:order/:table", (req, res) => {
         team,  
         sum(win) as 'C', 
         sum(loss) as 'R'
-        FROM peffl_data.PEFFL_playoffs  
+        FROM allgames
         WHERE week = 'DC'  
         GROUP BY team) as b 
         
@@ -101,10 +105,10 @@ router.get("/standings/:column/:order/:table", (req, res) => {
 
 // get all standings medals
 router.get("/medals/:table/:column", (req, res) => {
-  const table = req.params.table;
   const col = req.params.column;
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
 
-  db.query(
+  db.all(
     `SELECT 
     team, 
     sum(win) as 'W',
@@ -119,7 +123,7 @@ router.get("/medals/:table/:column", (req, res) => {
     avg(pa) as 'PAPG',
     sum(pf) - sum(pa)  as 'DIF',
     avg(pf) - avg(pa) as 'DIFPG'
-    FROM peffl_data.PEFFL_${table} 
+    FROM allgames ${where}
     group by team
     ORDER BY ${col} DESC 
     LIMIT 3`,
@@ -165,12 +169,12 @@ router.get("/medals/:table/:column", (req, res) => {
 
 // get regular season rank medals
 router.get("/standingsRank/:table", (req, res) => {
-  const table = req.params.table;
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
 
-  db.query(
+  db.all(
     `SELECT 
     team 
-    FROM peffl_data.PEFFL_${table}   
+    FROM allgames ${where}
     GROUP BY team 
     ORDER BY sum(win) DESC, sum(pf) DESC`,
     (err, result) => {

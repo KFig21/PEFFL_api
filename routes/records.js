@@ -1,22 +1,25 @@
 const router = require("express").Router();
-const mysql = require("mysql");
+// const mysql = require("mysql");
 
 // mysql db connection
-const db = mysql.createConnection({
-  host: process.env.RDS_HOSTNAME,
-  user: process.env.RDS_USERNAME,
-  password: process.env.RDS_PASSWORD,
-  port: process.env.RDS_PORT,
-});
+// const db = mysql.createConnection({
+//   host: process.env.RDS_HOSTNAME,
+//   user: process.env.RDS_USERNAME,
+//   password: process.env.RDS_PASSWORD,
+//   port: process.env.RDS_PORT,
+// });
 
 // connect to db
-db.connect(function (err) {
-  if (err) {
-    console.error("Database connection failed: " + err.stack);
-    return;
-  }
-  console.log("Connected to database.");
-});
+// db.connect(function (err) {
+//   if (err) {
+//     console.error("Database connection failed: " + err.stack);
+//     return;
+//   }
+//   console.log("Connected to database.");
+// });
+
+const { initializeDatabase } = require('../database');
+const db = initializeDatabase();
 
 // AWARDS
 
@@ -24,7 +27,7 @@ db.connect(function (err) {
 router.get("/awards/:column/:order", (req, res) => {
   let col = req.params.column;
   let order = req.params.order;
-  db.query(
+  db.all(
     `SELECT  
     team, 
     sum(lc) as 'C', 
@@ -33,7 +36,7 @@ router.get("/awards/:column/:order", (req, res) => {
     sum(p) as 'P', 
     sum(dc) as 'DT', 
     sum(money) as 'money' 
-    FROM peffl_data.PEFFL_awards 
+    FROM awards 
     GROUP BY team 
     ORDER BY ${col} ${order}, 
     money DESC, 
@@ -54,7 +57,7 @@ router.get("/awards/:column/:order", (req, res) => {
 
 // get awards rank
 router.get("/awardsRank", (req, res) => {
-  db.query(
+  db.all(
     `SELECT  
     team, 
     sum(lc) as 'C', 
@@ -63,7 +66,7 @@ router.get("/awardsRank", (req, res) => {
     sum(p) as 'P', 
     sum(dc) as 'DT', 
     sum(money) as 'money' 
-    FROM peffl_data.PEFFL_awards 
+    FROM awards 
     GROUP BY team 
     ORDER BY money DESC, C DESC, R DESC, RSC DESC, DT DESC, P DESC`,
     (err, result) => {
@@ -81,7 +84,7 @@ router.get("/awardsRank", (req, res) => {
 
 // single game most PF
 router.get("/single-game-most-pf", (req, res) => {
-  db.query(
+  db.all(
     `SELECT 
     year, 
     week, 
@@ -89,7 +92,7 @@ router.get("/single-game-most-pf", (req, res) => {
     pf, 
     pa, 
     opp 
-    FROM peffl_data.PEFFL_AG 
+    FROM allGames 
     ORDER BY pf DESC 
     LIMIT 10`,
     (err, result) => {
@@ -104,7 +107,7 @@ router.get("/single-game-most-pf", (req, res) => {
 
 // single season most PF
 router.get("/single-season-most-pf", (req, res) => {
-  db.query(
+  db.all(
     `SELECT 
     year, 
     team, 
@@ -112,7 +115,7 @@ router.get("/single-season-most-pf", (req, res) => {
     sum(pf)/(sum(win) + sum(loss)) as 'ppg', 
     sum(win) as 'W', 
     sum(loss) as 'L' 
-    FROM peffl_data.PEFFL_RS 
+    FROM allGames WHERE season = 'r' 
     GROUP BY team, year 
     ORDER BY ppg DESC 
     LIMIT 10`,
@@ -128,7 +131,7 @@ router.get("/single-season-most-pf", (req, res) => {
 
 // highest scoring game
 router.get("/highest-scoring-game", (req, res) => {
-  db.query(
+  db.all(
     `SELECT 
     year, 
     week, 
@@ -137,7 +140,7 @@ router.get("/highest-scoring-game", (req, res) => {
     pa, 
     opp, 
     pf + pa as 'total' 
-    FROM peffl_data.PEFFL_AG 
+    FROM allGames 
     ORDER BY total DESC, year DESC, week DESC 
     LIMIT 20`,
     (err, result) => {
@@ -158,7 +161,7 @@ router.get("/highest-scoring-game", (req, res) => {
 
 // highest margin of victory
 router.get("/highest-margin-of-victory", (req, res) => {
-  db.query(
+  db.all(
     `SELECT 
     year, 
     week, 
@@ -167,7 +170,7 @@ router.get("/highest-margin-of-victory", (req, res) => {
     pa, 
     opp, 
     pf - pa as 'margin' 
-    FROM peffl_data.PEFFL_AG 
+    FROM allGames 
     ORDER BY margin DESC, year DESC, week DESC 
     LIMIT 10`,
     (err, result) => {
@@ -184,14 +187,14 @@ router.get("/highest-margin-of-victory", (req, res) => {
 router.get("/weekly-records/:column/:order", (req, res) => {
   let col = req.params.column;
   let order = req.params.order;
-  db.query(
+  db.all(
     `
 SELECT teams.team, PF, PA, LeastPF, LeastPA
 FROM
 
 (SELECT
 team
-FROM peffl_data.PEFFL_RS
+FROM allGames WHERE season = 'r'
 GROUP BY team) as teams
 
 LEFT OUTER JOIN
@@ -212,7 +215,7 @@ FROM (
                 year,
                 week,
                 pf
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -224,7 +227,7 @@ FROM (
                 week,
                 team,
                 pf
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -260,7 +263,7 @@ FROM (
                 year,
                 week,
                 pa
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -272,7 +275,7 @@ FROM (
                 week,
                 team,
                 pa
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -307,7 +310,7 @@ FROM(SELECT
 year,
 week,
 pf
-FROM peffl_data.PEFFL_RS
+FROM allGames WHERE season = 'r'
 ORDER BY 
 	year ASC, 
     week ASC, 
@@ -319,7 +322,7 @@ year,
 week,
 team,
 pf
-FROM peffl_data.PEFFL_RS
+FROM allGames WHERE season = 'r'
 ORDER BY 
 	year ASC, 
     week ASC, 
@@ -353,7 +356,7 @@ FROM(SELECT
 year,
 week,
 pa
-FROM peffl_data.PEFFL_RS
+FROM allGames WHERE season = 'r'
 ORDER BY 
 	year ASC, 
     week ASC, 
@@ -365,7 +368,7 @@ year,
 week,
 team,
 pa
-FROM peffl_data.PEFFL_RS
+FROM allGames WHERE season = 'r'
 ORDER BY 
 	year ASC, 
     week ASC, 
@@ -415,15 +418,15 @@ order by ${col} ${order}, PF DESC, LeastPF ASC, PA DESC, LeastPA ASC
 router.get("/weekly-records/:team", (req, res) => {
   let team = req.params.team;
 
-  db.query(
+  db.all(
     `
 SELECT teams.team, PF, PA, LeastPF, LeastPA
 FROM
 
 (SELECT
 team
-FROM peffl_data.PEFFL_RS
-WHERE team = '${team}'
+FROM allGames WHERE season = 'r'
+AND team = '${team}'
 GROUP BY team) as teams
 
 LEFT OUTER JOIN
@@ -444,7 +447,7 @@ FROM (
                 year,
                 week,
                 pf
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -456,7 +459,7 @@ FROM (
                 week,
                 team,
                 pf
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -492,7 +495,7 @@ FROM (
                 year,
                 week,
                 pa
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -504,7 +507,7 @@ FROM (
                 week,
                 team,
                 pa
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -539,7 +542,7 @@ FROM(SELECT
 year,
 week,
 pf
-FROM peffl_data.PEFFL_RS
+FROM allGames WHERE season = 'r'
 ORDER BY 
 	year ASC, 
     week ASC, 
@@ -551,7 +554,7 @@ year,
 week,
 team,
 pf
-FROM peffl_data.PEFFL_RS
+FROM allGames WHERE season = 'r'
 ORDER BY 
 	year ASC, 
     week ASC, 
@@ -585,7 +588,7 @@ FROM(SELECT
 year,
 week,
 pa
-FROM peffl_data.PEFFL_RS
+FROM allGames WHERE season = 'r'
 ORDER BY 
 	year ASC, 
     week ASC, 
@@ -597,7 +600,7 @@ year,
 week,
 team,
 pa
-FROM peffl_data.PEFFL_RS
+FROM allGames WHERE season = 'r'
 ORDER BY 
 	year ASC, 
     week ASC, 
@@ -630,7 +633,7 @@ order by PF DESC, LeastPF ASC, PA DESC, LeastPA ASC
 
 // weeks with most PF medal
 router.get("/weeksMostPFmedals", (req, res) => {
-  db.query(
+  db.all(
     `
 SELECT 
 t.*
@@ -648,7 +651,7 @@ FROM (
                 year,
                 week,
                 pf
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -660,7 +663,7 @@ FROM (
                 week,
                 team,
                 pf
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -687,7 +690,7 @@ ORDER BY PF DESC) as t
 
 // weeks with most PA medal
 router.get("/weeksMostPAmedals", (req, res) => {
-  db.query(
+  db.all(
     `
 SELECT 
 t.*
@@ -705,7 +708,7 @@ FROM (
                 year,
                 week,
                 pa
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -717,7 +720,7 @@ FROM (
                 week,
                 team,
                 pa
-                FROM peffl_data.PEFFL_RS
+                FROM allGames WHERE season = 'r'
                 ORDER BY 
                     year ASC, 
                     week ASC, 
@@ -744,7 +747,7 @@ ORDER BY PA DESC) as t
 
 // weeks vs least PF medal
 router.get("/weeksLeastPFmedals", (req, res) => {
-  db.query(
+  db.all(
     `
     SELECT
     t.*
@@ -762,7 +765,7 @@ router.get("/weeksLeastPFmedals", (req, res) => {
     year,
     week,
     pf
-    FROM peffl_data.PEFFL_RS
+    FROM allGames WHERE season = 'r'
     ORDER BY 
       year ASC, 
         week ASC, 
@@ -774,7 +777,7 @@ router.get("/weeksLeastPFmedals", (req, res) => {
     week,
     team,
     pf
-    FROM peffl_data.PEFFL_RS
+    FROM allGames WHERE season = 'r'
     ORDER BY 
       year ASC, 
         week ASC, 
@@ -802,7 +805,7 @@ router.get("/weeksLeastPFmedals", (req, res) => {
 
 // weeks vs least PA medal
 router.get("/weeksLeastPAmedals", (req, res) => {
-  db.query(
+  db.all(
     `
 SELECT
 t.*
@@ -820,7 +823,7 @@ FROM(SELECT
 year,
 week,
 pa
-FROM peffl_data.PEFFL_RS
+FROM allGames WHERE season = 'r'
 ORDER BY 
 	year ASC, 
     week ASC, 
@@ -832,7 +835,7 @@ year,
 week,
 team,
 pa
-FROM peffl_data.PEFFL_RS
+FROM allGames WHERE season = 'r'
 ORDER BY 
 	year ASC, 
     week ASC, 
