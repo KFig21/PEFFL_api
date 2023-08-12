@@ -34,6 +34,13 @@ const corsOptions = {
 };
 app.use(cors(corsOptions)); // Use this after the variable declaration
 app.options("*", cors());
+// Middleware to set CORS headers
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', 'https://kfig21.github.io');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
+});
 // If you are receiving this error:
 //
 // access to xmlhttprequest at 'https://peffl-api.herokuapp.com/peffl/auth/teams/' from origin 'https://kfig21.github.io' has been blocked by cors policy: no 'access-control-allow-origin' header is present on the requested resource.
