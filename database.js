@@ -11,8 +11,6 @@ function initializeDatabase() {
       if (err) {
         console.error('Error creating allGames table:', err.message);
       } else {
-        console.log('allGames table created successfully.');
-
         // Read data from the CSV file and insert it into the "allGames" table
         const allGamesData = [];
         fs.createReadStream('tables/allGames.csv')
@@ -30,7 +28,7 @@ function initializeDatabase() {
               });
             });
             insertQuery.finalize(() => {
-              console.log('allGames Data inserted successfully.');
+              
             });
           });
       }
@@ -41,8 +39,6 @@ function initializeDatabase() {
       if (err) {
         console.error('Error creating awards table:', err.message);
       } else {
-        console.log('awards table created successfully.');
-
         // Read data from the CSV file and insert it into the "awards" table
         const awardsData = [];
         fs.createReadStream('tables/awards.csv')
@@ -60,7 +56,7 @@ function initializeDatabase() {
               });
             });
             insertQuery.finalize(() => {
-              console.log('Awards Data inserted successfully.');
+
             });
           });
       }

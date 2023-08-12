@@ -17,6 +17,7 @@ const teamsRouter = require("./routes/teams");
 const matchupsRouter = require("./routes/matchups");
 const ranksRouter = require("./routes/ranks");
 const seasonsRouter = require("./routes/seasons");
+const allRanksRouter = require("./routes/allRanks");
 
 // mongoDB setup
 const mongoDB = process.env.DB_CONNECTION_STRING;
@@ -54,6 +55,7 @@ app.use("/peffl/teams", teamsRouter);
 app.use("/peffl/matchups", matchupsRouter);
 app.use("/peffl/ranks", ranksRouter);
 app.use("/peffl/seasons", seasonsRouter);
+app.use("/peffl/allRanks", allRanksRouter);
 
 // view engine setup needed to keep from erroring out - ignore
 app.set("views", path.join(__dirname, "views"));
