@@ -35,6 +35,18 @@ const corsOptions = {
 
 app.use(cors(corsOptions)); // Use this after the variable declaration
 app.options("*", cors());
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, GET, PUT");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  next();
+})
+app.options("/", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "https://example.com");
+  res.setHeader("Access-Control-Allow-Methods", "POST, GET, PUT");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
 // If you are receiving this error:
 //
 // access to xmlhttprequest at 'https://peffl-api.herokuapp.com/peffl/auth/teams/' from origin 'https://kfig21.github.io' has been blocked by cors policy: no 'access-control-allow-origin' header is present on the requested resource.
