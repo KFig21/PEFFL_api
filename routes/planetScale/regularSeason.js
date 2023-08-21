@@ -1,32 +1,11 @@
 const router = require("express").Router();
-
-//// AWS RDS
-
-// mysql db connection
-// const db = mysql.createConnection({
-//   host: process.env.RDS_HOSTNAME,
-//   user: process.env.RDS_USERNAME,
-//   password: process.env.RDS_PASSWORD,
-//   port: process.env.RDS_PORT,
-// });
-
-// connect to db
-// db.connect(function (err) {
-//   if (err) {
-//     console.error("Database connection failed: " + err.stack);
-//     return;
-//   }
-// });
-
-//// SQLITE DB BROWSER
-
-const { initializeDatabase } = require('../../database');
-
-const db = initializeDatabase();
+const mysql = require('mysql2')
+const db = mysql.createConnection(process.env.PS_DATABASE_URL)
+db.connect()
 
 // get team names
 router.get("/teams", (req, res) => {
-  db.all(
+  db.query(
     `SELECT 'team' FROM allgames GROUP BY 'team' ORDER BY 'win' DESC`,
     (err, result) => {
       if (err) {
@@ -48,7 +27,7 @@ router.get("/standings/:column/:order/:table", (req, res) => {
   // so i created a col2 variable that is set to "w" if col === 'A'
   let col2 = col === "A" ? "W" : col;
 
-  db.all(
+  db.query(
     `SELECT 
     a.team as 'team', 
     a.L + IFNULL(b.C, 0) as 'A', 
@@ -111,7 +90,7 @@ router.get("/medals/:table/:column", (req, res) => {
   const col = req.params.column.toLowerCase();
   let where = req.params.table === 'RS' ? `WHERE season = "r"` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
 
-  db.all(
+  db.query(
     `SELECT 
     team, 
     sum(win) as "w",
@@ -174,7 +153,7 @@ router.get("/medals/:table/:column", (req, res) => {
 router.get("/standingsRank/:table", (req, res) => {
   let where = req.params.table === 'RS' ? `WHERE season = "r"` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
 
-  db.all(
+  db.query(
     `SELECT 
     team 
     FROM allgames ${where}

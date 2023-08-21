@@ -11,13 +11,13 @@ const path = require("path");
 
 // import routes
 const authRouter = require("./routes/auth");
-const regularSeasonRouter = require("./routes/regularSeason");
-const recordsRouter = require("./routes/records");
-const teamsRouter = require("./routes/teams");
-const matchupsRouter = require("./routes/matchups");
-const ranksRouter = require("./routes/ranks");
-const seasonsRouter = require("./routes/seasons");
-const allRanksRouter = require("./routes/allRanks");
+const regularSeasonRouter = require("./routes/planetScale/regularSeason");
+const recordsRouter = require("./routes/planetScale/records");
+const teamsRouter = require("./routes/planetScale/teams");
+const matchupsRouter = require("./routes/planetScale/matchups");
+const ranksRouter = require("./routes/planetScale/ranks");
+const seasonsRouter = require("./routes/planetScale/seasons");
+const allRanksRouter = require("./routes/planetScale/allRanks");
 
 // mongoDB setup
 const mongoDB = process.env.DB_CONNECTION_STRING;
@@ -28,12 +28,10 @@ db.on("error", console.error.bind(console, "MongoDB connection error:"));
 // cors middleware
 const corsOptions = {
   origin: "*",
-  crossorigin: "anonymous",
-  credentials: true,
+  credentials: true, //access-control-allow-credentials:true
   optionSuccessStatus: 200,
-  allowedHeaders: ["Content-Type", "Authorization"], // Add any custom headers here
+  origin: true,
 };
-
 app.use(cors(corsOptions)); // Use this after the variable declaration
 app.options("*", cors());
 // If you are receiving this error:

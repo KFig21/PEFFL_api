@@ -1,9 +1,10 @@
 const router = require("express").Router();
-const pool = require("../pool");
+const mysql = require('mysql2')
+const db = mysql.createConnection(process.env.PS_DATABASE_URL)
+db.connect()
 
 router.get("/:table", async (req, res) => {
     try {
-        const db_ = await pool.connect();
         const table = req.params.table;
         let where = '';
     
@@ -14,23 +15,23 @@ router.get("/:table", async (req, res) => {
         }
     
         const overallResponses = await Promise.all([
-          getRankData(db_, where, 'win'),
-          getRankData(db_, where, 'ppg'),
-          getRankData(db_, where, 'papg'),
-          getRankData(db_, where, 'difpg'),
-          getRankData(db_, where, 'pf'),
-          getRankData(db_, where, 'pa'),
-          getRankData(db_, where, 'dif')
+          getRankData(db, where, 'win'),
+          getRankData(db, where, 'ppg'),
+          getRankData(db, where, 'papg'),
+          getRankData(db, where, 'difpg'),
+          getRankData(db, where, 'pf'),
+          getRankData(db, where, 'pa'),
+          getRankData(db, where, 'dif')
         ]);
     
         const h2hResponses = await Promise.all([
-          getH2HRankData(db_, where, 'wins'),
-          getH2HRankData(db_, where, 'ppg'),
-          getH2HRankData(db_, where, 'ppgfilter'),
-          getH2HRankData(db_, where, 'pf'),
-          getH2HRankData(db_, where, 'difpg'),
-          getH2HRankData(db_, where, 'difpgfilter'),
-          getH2HRankData(db_, where, 'dif')
+          getH2HRankData(db, where, 'wins'),
+          getH2HRankData(db, where, 'ppg'),
+          getH2HRankData(db, where, 'ppgfilter'),
+          getH2HRankData(db, where, 'pf'),
+          getH2HRankData(db, where, 'difpg'),
+          getH2HRankData(db, where, 'difpgfilter'),
+          getH2HRankData(db, where, 'dif')
         ]);
     
         const rankedData = {
@@ -61,20 +62,25 @@ router.get("/:table", async (req, res) => {
       }
     });
 
-    async function getRankData(db_, where, rankType) {
+    async function getRankData(db, where, rankType) {
     return new Promise((resolve, reject) => {
         let query = '';
 
         switch (rankType) {
         case 'win':
             query = `
-            SELECT 
+                SELECT 
                 team,
-                sum(win) / (sum(win) + sum(loss)) as "${rankType.toUpperCase()}"
-            FROM allGames
-            ${where}
-            GROUP BY team
-            ORDER BY "${rankType.toUpperCase()}" DESC
+                win_ratio as "win"
+                FROM (
+                    SELECT 
+                        team,
+                        sum(win) / (sum(win) + sum(loss)) as win_ratio
+                    FROM allgames
+                    ${where}
+                    GROUP BY team
+                ) AS win_subquery
+                ORDER BY win_ratio DESC
             `;
             break;
         case 'ppg':
@@ -82,20 +88,20 @@ router.get("/:table", async (req, res) => {
             query = `
             SELECT 
                 team,
-                AVG(${rankType === 'ppg' ? 'pf' : 'pa'}) as "${rankType.toUpperCase()}"
-            FROM allGames ${where}
+                AVG(${rankType === 'ppg' ? 'pf' : 'pa'}) as "${rankType}"
+            FROM allgames ${where}
             GROUP BY team
-            ORDER BY "${rankType.toUpperCase()}" DESC
+            ORDER BY (AVG(${rankType === 'ppg' ? 'pf' : 'pa'})) DESC
             `;
             break;
         case 'difpg':
             query = `
             SELECT 
                 team,
-                avg(pf) - avg(pa) as "${rankType.toUpperCase()}"
-            FROM allGames ${where}
+                avg(pf) - avg(pa) as "${rankType}"
+            FROM allgames ${where}
             GROUP BY team
-            ORDER BY "${rankType.toUpperCase()}" DESC
+            ORDER BY (avg(pf) - avg(pa)) DESC
             `;
             break;
         case 'pf':
@@ -104,24 +110,24 @@ router.get("/:table", async (req, res) => {
             query = `
             SELECT
                 team,
-                sum(${rankType === 'pf' ? 'pf' : rankType === 'pa' ? 'pa' : 'pf - pa'}) as "${rankType.toUpperCase()}"
-            FROM allGames ${where}
+                sum(${rankType === 'pf' ? 'pf' : rankType === 'pa' ? 'pa' : 'pf - pa'}) as "${rankType}"
+            FROM allgames ${where}
             GROUP BY team
-            ORDER BY "${rankType.toUpperCase()}" DESC
+            ORDER BY (sum(${rankType === 'pf' ? 'pf' : rankType === 'pa' ? 'pa' : 'pf - pa'})) DESC
             `;
             break;
         }
 
-        db_.query(query, (err, result) => {
+        db.query(query, (err, result) => {
         if (err) {
             console.log(err);
             reject(err);
         } else {
-            const arr = result.rows.map((row) => {
+            const arr = result.map((row) => {
             if (rankType === 'win' || rankType === 'ppg' || rankType === 'papg' || rankType === 'difpg') {
-                return parseFloat(parseFloat(row[rankType.toUpperCase()]).toFixed(3));
+                return parseFloat(parseFloat(row[rankType]).toFixed(3));
             } else {
-                return parseInt(row[rankType.toUpperCase()]);
+                return parseInt(row[rankType]);
             }
             });
             resolve(arr);
@@ -130,7 +136,7 @@ router.get("/:table", async (req, res) => {
     });
     }
 
-    async function getH2HRankData(db_, where, rankType) {
+    async function getH2HRankData(db, where, rankType) {
         return new Promise((resolve, reject) => {
         let query = '';
     
@@ -138,100 +144,93 @@ router.get("/:table", async (req, res) => {
             case 'wins':
                 query = `
                     SELECT 
-                    (LEAST(team, opp) || GREATEST(team, opp)) as code,
                     team,
                     opp,
                     sum(win) as "${rankType.toUpperCase()}"
-                    FROM allGames
+                    FROM allgames
                     ${where}
                     GROUP BY team, opp
-                    ORDER BY "${rankType.toUpperCase()}" DESC;
+                    ORDER BY sum(win) DESC;
                 `;
                 break;
             case 'ppg':
                 query = `
                     SELECT 
-                    (LEAST(team, opp) || GREATEST(team, opp)) as code,
                     team,
                     opp,
                     avg(pf) as "${rankType.toUpperCase()}"
-                    FROM allGames ${where}
+                    FROM allgames ${where}
                     group by team, opp
-                    Order By "${rankType.toUpperCase()}" DESC
+                    Order By avg(pf) DESC
                 `;
                 break;
             case 'ppgfilter':
                 query = `
                     SELECT 
-                    (LEAST(team, opp) || GREATEST(team, opp)) as code,
                     team,
                     opp,
                     avg(pf) as "${rankType.toUpperCase()}"
-                    FROM allGames ${where}
+                    FROM allgames ${where}
                     ${where === '' ? 'WHERE' : 'AND'} team != 'Taylor' AND team != 'AJ'
                     AND opp != 'Taylor' AND opp != 'AJ'
                     group by team, opp
-                    Order By "${rankType.toUpperCase()}" DESC
+                    Order By avg(pf) DESC
                 `;
                 break;
             case 'pf':
                 query = `
                     SELECT 
-                    (LEAST(team, opp) || GREATEST(team, opp)) as code,
                     team,
                     opp,
                     sum(pf) as "${rankType.toUpperCase()}"
-                    FROM allGames ${where}
+                    FROM allgames ${where}
                     group by team, opp
-                    Order By "${rankType.toUpperCase()}" DESC
+                    Order By sum(pf) DESC
                 `;
                 break;
             case 'difpg':
                 query = `
                     SELECT 
-                    (LEAST(team, opp) || GREATEST(team, opp)) as code,
                     team,
                     opp,
                     avg(pf) - avg(pa) as "${rankType.toUpperCase()}"
-                    FROM allGames ${where}
+                    FROM allgames ${where}
                     group by team, opp
-                    Order By "${rankType.toUpperCase()}" DESC
+                    Order By (avg(pf) - avg(pa)) DESC
                 `;
                 break;
             case 'difpgfilter':
                 query = `
                     SELECT 
-                    (LEAST(team, opp) || GREATEST(team, opp)) as code,
                     team,
                     opp,
                     avg(pf) - avg(pa) as "${rankType.toUpperCase()}"
-                    FROM allGames ${where}
+                    FROM allgames ${where}
                     ${where === '' ? 'WHERE' : 'AND'} team != 'Taylor' AND team != 'AJ'
                     AND opp != 'Taylor' AND opp != 'AJ'
                     group by team, opp
-                    Order By "${rankType.toUpperCase()}" DESC
+                    Order By (avg(pf) - avg(pa)) DESC
                 `;
                 break;
             case 'dif':
                 query = `
                     SELECT 
-                    (LEAST(team, opp) || GREATEST(team, opp)) as code,
                     team,
                     opp,
                     sum(pf) - sum(pa) as "${rankType.toUpperCase()}"
-                    FROM allGames ${where}
+                    FROM allgames ${where}
                     group by team, opp
-                    Order By "${rankType.toUpperCase()}" DESC
+                    Order By (sum(pf) - sum(pa)) DESC
                 `;
                 break;
         }
     
-        db_.query(query, (err, result) => {
+        db.query(query, (err, result) => {
             if (err) {
                 console.log(err);
                 reject(err);
             } else {
-                const arr = result.rows.map((row) => {
+                const arr = result.map((row) => {
                     if (rankType === 'ppg' || rankType === 'difpg' || rankType === 'ppgfilter' || rankType === 'difpgfilter') {
                         return parseFloat(parseFloat(row[rankType.toUpperCase()]).toFixed(3));
                     } else {
