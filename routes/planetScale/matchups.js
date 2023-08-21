@@ -10,7 +10,6 @@ router.get("/all/:column/:order/:table", (req, res) => {
   let where = req.params.table === 'RS' ? `WHERE season = 'r' AND ` : req.params.table === 'playoffs' ? `WHERE season = 'p' AND ` : `WHERE`
   db.query(
     ` SELECT 
-    CONCAT(team, opp) as code,
     team,
     sum(win) as "w",
     sum(loss) as "l",
@@ -28,7 +27,7 @@ router.get("/all/:column/:order/:table", (req, res) => {
     FROM allgames ${where}
     team != 'Taylor' AND opp != 'Taylor' AND team != 'AJ' AND opp != 'AJ'
     group by team, opp
-    Order By ${col} ${order}, tot DESC, code DESC, w DESC, ppg DESC`,
+    Order By ${col} ${order}, tot DESC, w DESC, ppg DESC`,
     (err, result) => {
       if (err) {
         console.log(err);
@@ -37,12 +36,14 @@ router.get("/all/:column/:order/:table", (req, res) => {
         let codes = [];
         if (col === "g" || col === "totpg" || col === "tot") {
           for (let i = 0; i < result.length; i++) {
-            if (!codes.includes(result[i].code)) {
+            let code1 = result[i].team + result[i].opp
+            let code2 = result[i].opp + result[i].team
+            if (!codes.includes(code1)) {
               arr.push(result[i]);
-              codes.push(result[i].code);
+              codes.push(code1);
+              codes.push(code2);
             }
           }
-          // console.log(codes)
           res.send(arr);
         } else {
           res.send(result);
@@ -298,7 +299,7 @@ router.get("/medals/:table/:column", (req, res) => {
 router.get("/medals/:table", async (req, res) => {
   try {
     const table = req.params.table;
-    let where = '';
+    let where = 'WHERE';
 
     if (table === 'RS') {
       where = `WHERE season = 'r' AND `;
@@ -454,7 +455,6 @@ function processResults(results) {
   results.forEach((result, i) => {
     processResult(keys[i], result, combinedStats);
   });
-console.log('combinedStats', combinedStats)
   return combinedStats;
 }
 
@@ -464,8 +464,11 @@ function processResult(key, result, combinedStats) {
 
   if (key === 'winp') {
     let res = result.map((row) => {
-      if (row[key] === 1) {
-        return "1.000";
+      console.log(row[key])
+      if (row[key] === '1.0000') {
+        return (Math.round(row[key] * 1000) / 1000)
+        .toFixed(3)
+        .toString();
       } else {
         return (Math.round(row[key] * 1000) / 1000)
           .toFixed(3)

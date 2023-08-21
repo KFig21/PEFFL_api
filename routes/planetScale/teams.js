@@ -349,7 +349,7 @@ router.get("/allteams/:column/:order/:table", (req, res) => {
 // get allTeams medals
 router.get("/allMedals/:table/:column", (req, res) => {
   const col = req.params.column.toLowerCase();
-  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : `WHERE`
+  let where = req.params.table === 'RS' ? `WHERE season = 'r'` : req.params.table === 'playoffs' ? `WHERE season = 'p'` : ``
 
   db.query(
     `SELECT 
