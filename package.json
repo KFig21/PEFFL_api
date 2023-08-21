@@ -8,10 +8,9 @@
   "description": "",
   "main": "app.js",
   "scripts": {
+    "start": "node ./bin/www",
     "devstart": "nodemon ./bin/www",
-    "serverstart": "DEBUG=server:* npm run devstart",
-    "build": "react-scripts build",
-    "start": "react-scripts start"
+    "serverstart": "DEBUG=server:* npm run devstart"
   },
   "author": "",
   "license": "ISC",
