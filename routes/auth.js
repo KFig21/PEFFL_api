@@ -5,7 +5,6 @@ const Team = require("../models/Team");
 const bcrypt = require("bcrypt");
 const joi = require("joi");
 const jwt = require("jsonwebtoken");
-const { db } = require("../app.js");
 
 // Register
 router.post("/register", async (req, res, next) => {

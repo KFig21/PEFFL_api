@@ -7,47 +7,39 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const bodyParser = require("body-parser");
 const createError = require("http-errors");
-const path = require("path");
 
-// import routes
+// Import routes
 const authRouter = require("./routes/auth");
-const regularSeasonRouter = require("./routes/planetScale/regularSeason");
-const recordsRouter = require("./routes/planetScale/records");
-const teamsRouter = require("./routes/planetScale/teams");
-const matchupsRouter = require("./routes/planetScale/matchups");
-const ranksRouter = require("./routes/planetScale/ranks");
-const seasonsRouter = require("./routes/planetScale/seasons");
-const allRanksRouter = require("./routes/planetScale/allRanks");
+const regularSeasonRouter = require("./routes/neon/regularSeason"); // done
+const recordsRouter = require("./routes/sqlite/records");
+const teamsRouter = require("./routes/sqlite/teams");
+const matchupsRouter = require("./routes/sqlite/matchups");
+const ranksRouter = require("./routes/sqlite/ranks");
+const seasonsRouter = require("./routes/neon/seasons"); // loading...
+const allRanksRouter = require("./routes/sqlite/allRanks");
 
-// mongoDB setup
+// MongoDB setup
 const mongoDB = process.env.DB_CONNECTION_STRING;
 mongoose.connect(mongoDB, { useNewUrlParser: true, useUnifiedTopology: true });
 const db = mongoose.connection;
 db.on("error", console.error.bind(console, "MongoDB connection error:"));
 
-// cors middleware
-const corsOptions = {
-  origin: "*",
-  credentials: true, //access-control-allow-credentials:true
-  optionSuccessStatus: 200,
-  origin: true,
-};
-app.use(cors(corsOptions)); // Use this after the variable declaration
-app.options("*", cors());
-// If you are receiving this error:
-//
-// access to xmlhttprequest at 'https://peffl-api.herokuapp.com/peffl/auth/teams/' from origin 'https://kfig21.github.io' has been blocked by cors policy: no 'access-control-allow-origin' header is present on the requested resource.
-//
-// remember to set your mongodb database accessible from anywhere
+// CORS middleware
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  next();
+});
 
-//middleware
+// Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(helmet());
 app.use(morgan("common"));
 
-// use routes
+// Use routes
 app.use("/peffl/auth", authRouter);
 app.use("/peffl/rs", regularSeasonRouter);
 app.use("/peffl/records", recordsRouter);
@@ -57,29 +49,23 @@ app.use("/peffl/ranks", ranksRouter);
 app.use("/peffl/seasons", seasonsRouter);
 app.use("/peffl/allRanks", allRanksRouter);
 
-// view engine setup needed to keep from erroring out - ignore
-app.set("views", path.join(__dirname, "views"));
-app.set("view engine", "jade");
-
-// catch 404 and forward to error handler
+// Catch 404 and forward to error handler
 app.use(function (req, res, next) {
   next(createError(404));
 });
 
-// error handler
+// Error handler
 app.use(function (err, req, res, next) {
-  // set locals, only providing error in development
+  // Set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get("env") === "development" ? err : {};
 
-  // render the error page
+  // Send error response
   res.status(err.status || 500);
-  res.render("error");
+  res.json({
+    message: err.message,
+    error: req.app.get("env") === "development" ? err : {}
+  });
 });
-
-// const port = 3000;
-// app.listen(port, () => {
-//   console.log(`Example app listening on port ${port}!`);
-// });
 
 module.exports = app;

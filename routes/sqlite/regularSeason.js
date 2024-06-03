@@ -1,25 +1,5 @@
 const router = require("express").Router();
 
-//// AWS RDS
-
-// mysql db connection
-// const db = mysql.createConnection({
-//   host: process.env.RDS_HOSTNAME,
-//   user: process.env.RDS_USERNAME,
-//   password: process.env.RDS_PASSWORD,
-//   port: process.env.RDS_PORT,
-// });
-
-// connect to db
-// db.connect(function (err) {
-//   if (err) {
-//     console.error("Database connection failed: " + err.stack);
-//     return;
-//   }
-// });
-
-//// SQLITE DB BROWSER
-
 const { initializeDatabase } = require('../../database');
 
 const db = initializeDatabase();
