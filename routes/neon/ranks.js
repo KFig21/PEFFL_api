@@ -17,10 +17,6 @@ const sql = postgres({
   },
 });
 
-// delete when done with neon integration
-const { initializeDatabase } = require('../../database');
-const db = initializeDatabase();
-
 // OVERALL
 
 // get ranks for Win%
