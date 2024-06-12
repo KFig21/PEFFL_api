@@ -17,79 +17,77 @@ const sql = postgres({
   },
 });
 
-// delete when converted to neon
-const { initializeDatabase } = require('../../database');
-const db = initializeDatabase();
-
 // get single season stats
 router.get("/table/:year/:sortBy/:sortOrder/:table", async (req, res) => {
   try {
-    const year = req.params.year;
-    const sortBy = req.params.sortBy;
-    const sortOrder = req.params.sortOrder;
-    const season =
-      req.params.table === "RS"
-        ? `AND season = 'r'`
-        : req.params.table === "playoffs"
-        ? `AND season = 'p'`
-        : "";
+    const { year, sortBy, sortOrder, table } = req.params;
 
+    // Determine season condition based on table parameter
+    let seasonCondition = "";
+    if (table === "RS") {
+      seasonCondition = "AND season = 'r'";
+    } else if (table === "playoffs") {
+      seasonCondition = "AND season = 'p'";
+    }
+
+    // Generate dynamic week columns for regular weeks
     const weeksColumns = Array.from({ length: 13 }, (_, i) => `
-      MAX(CASE WHEN week = $${i + 2} THEN pf END) as week${i + 1},
-      MAX(CASE WHEN week = $${i + 2} THEN win END) as week${i + 1}_outcome,
-      MAX(CASE WHEN week = $${i + 2} THEN opp END) as week${i + 1}_opp,
-      MAX(CASE WHEN week = $${i + 2} THEN pa END) as week${i + 1}_pa`
+        MAX(CASE WHEN week = ${i + 1}::varchar THEN pf END) AS week${i + 1},
+        MAX(CASE WHEN week = ${i + 1}::varchar THEN win END) AS week${i + 1}_outcome,
+        MAX(CASE WHEN week = ${i + 1}::varchar THEN opp END) AS week${i + 1}_opp,
+        MAX(CASE WHEN week = ${i + 1}::varchar THEN pa END) AS week${i + 1}_pa`
     ).join(",\n");
 
-    const week14Column =
-      year > 2020
-        ? `MAX(CASE WHEN week = 14 THEN pf END) as week14,
-           MAX(CASE WHEN week = 14 THEN win END) as week14_outcome,
-           MAX(CASE WHEN week = 14 THEN opp END) as week14_opp,
-           MAX(CASE WHEN week = 14 THEN pa END) as week14_pa,`
-        : "";
+    // Conditional week 14 column based on the year
+    const week14Column = parseInt(year) > 2020 ? `
+        MAX(CASE WHEN week = 14::varchar THEN pf END) AS week14,
+        MAX(CASE WHEN week = 14::varchar THEN win END) AS week14_outcome,
+        MAX(CASE WHEN week = 14::varchar THEN opp END) AS week14_opp,
+        MAX(CASE WHEN week = 14::varchar THEN pa END) AS week14_pa,` : "";
 
-    const query = sql`
+    // Construct the complete query
+    const query = `
       SELECT 
-        team as "team",
+        team AS "team",
         ${weeksColumns},
         ${week14Column}
-        MAX(CASE WHEN week = 'WC' THEN pf END) as weekWc,
-        MAX(CASE WHEN week = 'WC' THEN win END) as weekWc_outcome,
-        MAX(CASE WHEN week = 'WC' THEN opp END) as weekWc_opp,
-        MAX(CASE WHEN week = 'WC' THEN pa END) as weekWc_pa,
-        MAX(CASE WHEN week = 'SF' THEN pf END) as weekSf,
-        MAX(CASE WHEN week = 'SF' THEN win END) as weekSf_outcome,
-        MAX(CASE WHEN week = 'SF' THEN opp END) as weekSf_opp,
-        MAX(CASE WHEN week = 'SF' THEN pa END) as weekSf_pa,
-        MAX(CASE WHEN week = 'DC' THEN pf END) as weekDc,
-        MAX(CASE WHEN week = 'DC' THEN win END) as weekDc_outcome,
-        MAX(CASE WHEN week = 'DC' THEN opp END) as weekDc_opp,
-        MAX(CASE WHEN week = 'DC' THEN pa END) as weekDc_pa,
-        AVG(pf) as ppg,
-        AVG(pa) as papg,
-        SUM(pf) as pf,
-        SUM(pa) as pa, 
-        SUM(win) as w,
-        SUM(loss) as l,
-        SUM(win + loss) as g,
-        SUM(pf - pa) as dif,
-        AVG(pf - pa) as difpg
+        MAX(CASE WHEN week = 'WC' THEN pf END) AS weekWc,
+        MAX(CASE WHEN week = 'WC' THEN win END) AS weekWc_outcome,
+        MAX(CASE WHEN week = 'WC' THEN opp END) AS weekWc_opp,
+        MAX(CASE WHEN week = 'WC' THEN pa END) AS weekWc_pa,
+
+        MAX(CASE WHEN week = 'SF' THEN pf END) AS weekSf,
+        MAX(CASE WHEN week = 'SF' THEN win END) AS weekSf_outcome,
+        MAX(CASE WHEN week = 'SF' THEN opp END) AS weekSf_opp,
+        MAX(CASE WHEN week = 'SF' THEN pa END) AS weekSf_pa,
+
+        MAX(CASE WHEN week = 'DC' THEN pf END) AS weekDc,
+        MAX(CASE WHEN week = 'DC' THEN win END) AS weekDc_outcome,
+        MAX(CASE WHEN week = 'DC' THEN opp END) AS weekDc_opp,
+        MAX(CASE WHEN week = 'DC' THEN pa END) AS weekDc_pa,
+        
+        AVG(pf) AS ppg,
+        AVG(pa) AS papg,
+        SUM(pf) AS pf,
+        SUM(pa) AS pa,
+        SUM(win) AS w,
+        SUM(loss) AS l,
+        SUM(win + loss) AS g,
+        SUM(pf - pa) AS dif,
+        AVG(pf - pa) AS difpg
       FROM allGames
-      WHERE year = ${year} ${season}
+      WHERE year = ${parseInt(year)} ${seasonCondition}
       GROUP BY team
       ORDER BY ${sortBy} ${sortOrder}`;
-
-    const result = await sql.unsafe(query, year);
+      
+    // Execute the query with the postgres library
+    const result = await sql.unsafe(query);
     res.send(result);
   } catch (error) {
     console.error("Error executing query:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
-
-
 
 
 // get single season trophies
