@@ -11,11 +11,11 @@ const createError = require("http-errors");
 // Import routes
 const authRouter = require("./routes/auth");
 const regularSeasonRouter = require("./routes/neon/regularSeason"); // done
+const seasonsRouter = require("./routes/neon/seasons"); // done
+const ranksRouter = require("./routes/neon/ranks"); // in progress
 const recordsRouter = require("./routes/sqlite/records");
 const teamsRouter = require("./routes/sqlite/teams");
 const matchupsRouter = require("./routes/sqlite/matchups");
-const ranksRouter = require("./routes/sqlite/ranks");
-const seasonsRouter = require("./routes/neon/seasons"); // loading...
 const allRanksRouter = require("./routes/sqlite/allRanks");
 
 // MongoDB setup

@@ -79,7 +79,6 @@ router.post("/register", async (req, res, next) => {
 
 // Login
 router.post("/login", async (req, res) => {
-  console.log("login");
   const schema = joi.object({
     usermail: joi.string().min(3).max(200).required(),
     password: joi.string().min(6).max(200).required(),

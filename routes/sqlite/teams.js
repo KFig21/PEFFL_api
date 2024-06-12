@@ -335,7 +335,6 @@ router.get("/seasons/:team/:column/:order/:table", (req, res) => {
       if (err) {
         console.log(err);
       } else {
-        console.log(result)
         res.send(result);
       }
     }

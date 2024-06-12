@@ -464,7 +464,6 @@ function processResult(key, result, combinedStats) {
 
   if (key === 'winp') {
     let res = result.map((row) => {
-      console.log(row[key])
       if (row[key] === '1.0000') {
         return (Math.round(row[key] * 1000) / 1000)
         .toFixed(3)

@@ -196,7 +196,6 @@ router.get("/h2h/:team1/:team2/:table", async (req, res) => {
       team1: { 'team': team1, 'h2h': h2hResult_team1.rows[0], 'overall': team1Result.rows[0] },
       team2: { 'team': team2, 'h2h': h2hResult_team2.rows[0], 'overall': team2Result.rows[0] },
     };
-    console.log(combo)
     res.send(combo)
   } catch (error) {
     console.error('Error executing query:', error);
