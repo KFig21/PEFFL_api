@@ -13,7 +13,7 @@ function initializeDatabase() {
       } else {
         // Read data from the CSV file and insert it into the "allGames" table
         const allGamesData = [];
-        fs.createReadStream('tables/allGames.csv')
+        fs.createReadStream('tables/allgames.csv')
           .pipe(csvParser())
           .on('data', (row) => {
             allGamesData.push(row);
