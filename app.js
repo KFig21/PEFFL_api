@@ -10,10 +10,10 @@ const createError = require("http-errors");
 
 // Import routes
 const authRouter = require("./routes/auth");
-const regularSeasonRouter = require("./routes/sqlite/regularSeason"); // done
-const seasonsRouter = require("./routes/sqlite/seasons"); // done
-const ranksRouter = require("./routes/sqlite/ranks"); // done
-const recordsRouter = require("./routes/sqlite/records"); // in progress
+const regularSeasonRouter = require("./routes/sqlite/regularSeason");
+const seasonsRouter = require("./routes/sqlite/seasons");
+const ranksRouter = require("./routes/sqlite/ranks");
+const recordsRouter = require("./routes/sqlite/records");
 const teamsRouter = require("./routes/sqlite/teams");
 const matchupsRouter = require("./routes/sqlite/matchups");
 const allRanksRouter = require("./routes/sqlite/allRanks");
